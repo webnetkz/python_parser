@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 import json
 
 
-url = "https://anepmetall.kz/"
+url = "https://anepmetall.ru/"
 
 
 def get_category_level_one(url):
