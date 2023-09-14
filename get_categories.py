@@ -4,15 +4,15 @@ import json
 
 
 url = "https://anepmetall.kz/"
-response = requests.get(url)
-soup = BeautifulSoup(response.text, 'html.parser')
 
-
-ul = soup.find('ul', class_='list-unstyled scroll-ul border')
-
-
-def get_category():
+def get_category_level_one(url):
     categories = []
+
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, 'html.parser')
+
+    ul = soup.find('ul', class_='list-unstyled scroll-ul border')
+
     for li in ul.find_all('li'):
         a_tag = li.find('a')
         category = {
@@ -24,35 +24,80 @@ def get_category():
     
     return categories
 
-print(get_category())
-exit()
+def get_category_level_two(url):
+    categories = []
 
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, 'html.parser')
 
+    ul = soup.find('ul', class_='list-unstyled scroll-ul border')
 
+    for li in ul.find_all('li'):
+        a_tag = li.find('a')
+        ul_tag = li.find('ul')
 
-# 6. Далее в каждом элементе есть div со списком второго уровня
-for category in categories:
-    category_url = category['url']
-    category_response = requests.get(category_url)
-    category_soup = BeautifulSoup(category_response.text, 'html.parser')
+        if ul_tag:
+            for li_2 in ul_tag.find_all('li'):
+                a_tag_2 = li_2.find('a')
+                category = {
+                    'name': a_tag_2.find('span').text.strip(),
+                    'url': a_tag_2['href'],
+                    'parent': a_tag.find('span').text.strip()
+                }
+                categories.append(category)
+    
+    return categories
 
-    # 7. Извлекаем категории второго уровня
-    sub_categories = []
-    sub_ul = category_soup.find('ul', class_='your-sub-ul-class')  # Замените на класс вашего под-списка
-    if sub_ul:
-        for sub_li in sub_ul.find_all('li'):
-            sub_a_tag = sub_li.find('a')
-            sub_category = {
-                'name': sub_a_tag.find('span').text.strip(),
-                'url': sub_a_tag['href'],
-                'parent': category['name']  # Обозначаем родительскую категорию
+def get_category_level_three(url):
+    categories = []
+
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, 'html.parser')
+
+    ul = soup.find('ul', class_='list-unstyled scroll-ul border')
+
+    for li in ul.find_all('li'):
+        a_tag = li.find('a')
+        ul_tag = li.find('ul')
+
+        if ul_tag:
+            for li_2 in ul_tag.find_all('li'):
+                a_tag_2 = li_2.find('a')
+                ul_tag_2 = li_2.find('ul')
+
+                if ul_tag_2:
+                    for li_3 in ul_tag_2.find_all('li'):
+                        a_tag_3 = li_3.find('a')
+                        category = {
+                            'name': a_tag_3.find('span').text.strip(),
+                            'url': a_tag_3['href'],
+                            'parent_level_two': a_tag.find('span').text.strip(),
+                            'parent_level_one': a_tag_2.find('span').text.strip()
+                        }
+                        categories.append(category)
+    
+    return categories
+
+def get_links_of_product(url, parent):
+    links = []
+
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, 'html.parser')   
+    table = soup.find('table', class_='products-table')
+    
+    for a_tag in table.find_all('a'):
+        link = a_tag.get('href')
+        if link:
+            product = {
+                'link': link,
+                'parent': parent
             }
-            sub_categories.append(sub_category)
+            links.append(product)
+    
+    return links
 
-        # 8. В списке второго уровня также может быть список третьего уровня (повторите шаги по необходимости)
 
-    category['sub_categories'] = sub_categories
+print(get_links_of_product('https://anepmetall.kz/katalog/chernyj-metalloprokat/listovoj-prokat/list-perforirovannyj/', 'yes'))
 
-# Создаем JSON-файл
-with open('categories.json', 'w', encoding='utf-8') as json_file:
-    json.dump(categories, json_file, ensure_ascii=False, indent=4)
+
+exit()
