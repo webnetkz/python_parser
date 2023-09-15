@@ -1,12 +1,30 @@
 import requests
 from bs4 import BeautifulSoup
-import json
-
+import sqlite3
 
 url = "https://anepmetall.ru/"
 
+def create_categories_table(connection):
+    cursor = connection.cursor()
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS categories (
+        id INTEGER PRIMARY KEY,
+        name TEXT,
+        url TEXT,
+        parent TEXT
+    )
+    ''')
+    connection.commit()
 
-def get_category_level_one(url):
+def insert_category(connection, name, url, parent):
+    cursor = connection.cursor()
+    cursor.execute('''
+    INSERT INTO categories (name, url, parent)
+    VALUES (?, ?, ?)
+    ''', (name, url, parent))
+    connection.commit()
+
+def get_category_level_zero(url):
     categories = []
 
     response = requests.get(url)
@@ -14,17 +32,16 @@ def get_category_level_one(url):
 
     ul = soup.find('ul', class_='list-unstyled scroll-ul border')
 
-    for li in ul.find_all('li'):
+    for li in ul.find_all('li', recursive=False):
         a_tag = li.find('a')
         category = {
             'name': a_tag.find('span').text.strip(),
             'url': a_tag['href'],
-            'parent': 1
+            'parent': 0
         }
         categories.append(category)
-    
-    return categories
 
+    return categories
 
 def get_category_level_two(url):
     categories = []
@@ -47,9 +64,8 @@ def get_category_level_two(url):
                     'parent': a_tag.find('span').text.strip()
                 }
                 categories.append(category)
-    
-    return categories
 
+    return categories
 
 def get_category_level_three(url):
     categories = []
@@ -74,32 +90,29 @@ def get_category_level_three(url):
                         category = {
                             'name': a_tag_3.find('span').text.strip(),
                             'url': a_tag_3['href'],
-                            'parent_level_two': a_tag.find('span').text.strip(),
-                            'parent_level_one': a_tag_2.find('span').text.strip()
+                            'parent': a_tag.find('span').text.strip()
                         }
                         categories.append(category)
-    
+
     return categories
 
+# Создаем или подключаемся к базе данных SQLite
+conn = sqlite3.connect('categories.db')
+
+# Создаем таблицу для хранения категорий
+create_categories_table(conn)
 
 # Получаем списки категорий для каждого уровня
-level_one_categories = get_category_level_one(url)
+level_zero_categories = get_category_level_zero(url)  # Получаем категории нулевого уровня
 level_two_categories = get_category_level_two(url)
 level_three_categories = get_category_level_three(url)
 
 # Объединяем списки категорий в один общий список
-all_categories = level_one_categories + level_two_categories + level_three_categories
+all_categories = level_zero_categories + level_two_categories + level_three_categories
 
-# Сериализуем данные в JSON
-json_data = json.dumps(all_categories, ensure_ascii=False, indent=4)
+# Вставляем данные в таблицу
+for category in all_categories:
+    insert_category(conn, category['name'], category['url'], category['parent'])
 
-# Сохраняем JSON в файл или выводим на экран
-with open("categories.json", "w", encoding="utf-8") as json_file:
-    json_file.write(json_data)
-
-# Если нужно вывести JSON на экран
-print(json_data)
-
-
-
-
+# Закрываем соединение с базой данных
+conn.close()
